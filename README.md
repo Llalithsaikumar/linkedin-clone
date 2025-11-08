@@ -362,9 +362,6 @@ npm start
 
 This project is open source and available under the [MIT License](LICENSE).
 
-## 👨‍💻 Author
-
-Your Name - [GitHub](https://github.com/yourusername)
 
 ## 🙏 Acknowledgments
 
