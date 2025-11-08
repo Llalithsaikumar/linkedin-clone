@@ -74,17 +74,20 @@ app.post("/api/upload", requireAuth, upload.single("image"), (req, res) => {
 
 async function start() {
 	try {
-		await mongoose.connect(mongoUri, {
-			serverSelectionTimeoutMS: 5000
-		});
+		console.log("STARTUP: process.env.PORT=", process.env.PORT, "using fallback port", port);
+		// try connecting but do NOT kill the process on failure so the app can respond
+		await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
 		console.log("Connected to MongoDB");
-		app.listen(port, () => {
-			console.log(`Server listening on port ${port}`);
-		});
 	} catch (error) {
-		console.error("Failed to start server", error);
-		process.exit(1);
+		// log full error but continue to start server so Railway won't return 502
+		console.error("MongoDB connection failed (will continue):", error && (error.stack || error.message || error));
+		// Optionally set a flag here to show DB is down; do NOT process.exit(1)
 	}
+
+	// Start HTTP server regardless of DB status
+	app.listen(port, () => {
+		console.log(`Server listening on port ${port}`);
+	});
 }
 
 start();
