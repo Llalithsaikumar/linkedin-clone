@@ -59,6 +59,10 @@ app.get("/health", (req, res) => {
 	res.json({ ok: true });
 });
 
+app.get("/api/health", (req, res) => {
+	res.json({ status: "ok", time: new Date().toISOString() });
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/posts", postsRouter);
 app.use("/api/users", usersRouter);
