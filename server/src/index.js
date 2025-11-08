@@ -29,6 +29,15 @@ app.use(cors({ origin: clientOrigin, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// Fast server patch (temporary, safe) — strip unexpected prefix
+app.use((req, res, next) => {
+	// remove accidental prefix (example: /way.app)
+	if (req.url.startsWith("/way.app")) {
+		req.url = req.url.replace("/way.app", "") || "/";
+	}
+	next();
+});
+
 // Static uploads
 const uploadsDir = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
