@@ -1,0 +1,72 @@
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import authRouter from "./routes/auth.js";
+import postsRouter from "./routes/posts.js";
+import usersRouter from "./routes/users.js";
+import path from "path";
+import multer from "multer";
+import fs from "fs";
+
+dotenv.config();
+
+const app = express();
+
+const port = process.env.PORT || 4000;
+const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/linkedin_clone";
+const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+
+app.use(cors({ origin: clientOrigin, credentials: true }));
+app.use(express.json());
+app.use(cookieParser());
+
+// Static uploads
+const uploadsDir = path.resolve(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+	fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
+
+// Multer setup for simple image upload to disk
+const storage = multer.diskStorage({
+	destination: function (req, file, cb) { cb(null, uploadsDir); },
+	filename: function (req, file, cb) {
+		const ext = file.originalname.includes(".") ? file.originalname.substring(file.originalname.lastIndexOf(".")) : "";
+		cb(null, `${Date.now()}-${Math.round(Math.random()*1e9)}${ext}`);
+	}
+});
+const upload = multer({ storage });
+
+app.get("/health", (req, res) => {
+	res.json({ ok: true });
+});
+
+app.use("/api/auth", authRouter);
+app.use("/api/posts", postsRouter);
+app.use("/api/users", usersRouter);
+
+app.post("/api/upload", upload.single("image"), (req, res) => {
+	if (!req.file) return res.status(400).json({ error: "No file" });
+	const url = `${clientOrigin}/uploads/${req.file.filename}`.replace("http://localhost:5173", `http://localhost:${port}`);
+	return res.status(201).json({ url: `/uploads/${req.file.filename}` });
+});
+
+async function start() {
+	try {
+		await mongoose.connect(mongoUri, {
+			serverSelectionTimeoutMS: 5000
+		});
+		console.log("Connected to MongoDB");
+		app.listen(port, () => {
+			console.log(`Server listening on port ${port}`);
+		});
+	} catch (error) {
+		console.error("Failed to start server", error);
+		process.exit(1);
+	}
+}
+
+start();
+
