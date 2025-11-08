@@ -19,6 +19,18 @@ const __dirname = dirname(__filename);
 // Load .env from server root directory
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
+// ----- add near the top, after your imports -----
+process.on("uncaughtException", (err) => {
+	console.error("UNCAUGHT EXCEPTION:", err && (err.stack || err.message || err));
+	// don't exit — allow Railway to show logs
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+	console.error("UNHANDLED REJECTION at:", promise, "reason:", reason && (reason.stack || reason));
+	// don't exit — allow Railway to show logs
+});
+// ------------------------------------------------
+
 const app = express();
 
 const port = process.env.PORT || 4000;
@@ -72,22 +84,44 @@ app.post("/api/upload", requireAuth, upload.single("image"), (req, res) => {
 	return res.status(201).json({ url: `/uploads/${req.file.filename}` });
 });
 
+// Replace your existing start() with this safe startup routine
 async function start() {
 	try {
-		console.log("STARTUP: process.env.PORT=", process.env.PORT, "using fallback port", port);
-		// try connecting but do NOT kill the process on failure so the app can respond
-		await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
-		console.log("Connected to MongoDB");
-	} catch (error) {
-		// log full error but continue to start server so Railway won't return 502
-		console.error("MongoDB connection failed (will continue):", error && (error.stack || error.message || error));
-		// Optionally set a flag here to show DB is down; do NOT process.exit(1)
-	}
+		console.log("STARTUP: process.env.PORT =", process.env.PORT, "  fallback port =", port);
+		console.log("STARTUP: using mongoUri =", (mongoUri || "").slice(0, 40) + "..."); // partial for safety
 
-	// Start HTTP server regardless of DB status
-	app.listen(port, () => {
-		console.log(`Server listening on port ${port}`);
-	});
+		// Try connecting to MongoDB, but allow server to start even if DB is down
+		try {
+			await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+			console.log("Connected to MongoDB");
+		} catch (dbErr) {
+			console.error("MongoDB connection failed (will continue and start server):", dbErr && (dbErr.stack || dbErr.message || dbErr));
+			// do not process.exit(1);
+		}
+
+		// Start the HTTP server regardless of DB status
+		const listener = app.listen(port, () => {
+			const actualPort = listener.address && listener.address().port;
+			console.log(`Server listening on port ${actualPort} (process.env.PORT=${process.env.PORT})`);
+		});
+
+		// optional: graceful shutdown hooks
+		const shutdown = async (signal) => {
+			console.log(`Received ${signal}. Shutting down gracefully...`);
+			try {
+				await mongoose.disconnect();
+			} catch (e) {
+				/* ignore */
+			}
+			process.exit(0);
+		};
+		process.on("SIGINT", () => shutdown("SIGINT"));
+		process.on("SIGTERM", () => shutdown("SIGTERM"));
+	} catch (err) {
+		// Catch any fatal startup error and log it (do NOT crash silently)
+		console.error("Fatal startup error:", err && (err.stack || err.message || err));
+		// Leave process running for debugging — do not call process.exit here
+	}
 }
 
 start();
