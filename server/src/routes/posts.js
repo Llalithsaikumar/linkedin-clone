@@ -50,8 +50,6 @@ router.delete("/:id", requireAuth, async (req, res) => {
 	return res.json({ ok: true });
 });
 
-export default router;
-
 // Like/Unlike a post (toggle)
 router.post("/:id/like", requireAuth, async (req, res) => {
 	const { id } = req.params;
@@ -84,4 +82,6 @@ router.post("/:id/comments", requireAuth, async (req, res) => {
 		.populate("comments.user", "name");
 	return res.status(201).json(populated);
 });
+
+export default router;
 

@@ -6,11 +6,18 @@ import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.js";
 import postsRouter from "./routes/posts.js";
 import usersRouter from "./routes/users.js";
+import { requireAuth } from "./middleware/auth.js";
 import path from "path";
 import multer from "multer";
 import fs from "fs";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load .env from server root directory
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const app = express();
 
@@ -47,9 +54,8 @@ app.use("/api/auth", authRouter);
 app.use("/api/posts", postsRouter);
 app.use("/api/users", usersRouter);
 
-app.post("/api/upload", upload.single("image"), (req, res) => {
+app.post("/api/upload", requireAuth, upload.single("image"), (req, res) => {
 	if (!req.file) return res.status(400).json({ error: "No file" });
-	const url = `${clientOrigin}/uploads/${req.file.filename}`.replace("http://localhost:5173", `http://localhost:${port}`);
 	return res.status(201).json({ url: `/uploads/${req.file.filename}` });
 });
 
