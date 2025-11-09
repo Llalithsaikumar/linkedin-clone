@@ -67,12 +67,16 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-app.get("/health", (req, res) => {
-	res.json({ ok: true });
+app.get('/', (req, res) => {
+	res.send('✅ Server is running');
 });
 
-app.get("/api/health", (req, res) => {
-	res.json({ status: "ok", time: new Date().toISOString() });
+app.get('/api/health', (req, res) => {
+	res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+app.get("/health", (req, res) => {
+	res.json({ ok: true });
 });
 
 app.use("/api/auth", authRouter);
